@@ -151,36 +151,33 @@ void playMove(gameState *pgameState, uint16_t spot, char player)
 {
    uint16_t spotBit = spotToBit(spot);
    // check validity of move
-   if (isMoveValid(pgameState, spotBit))
+   pgameState->gameBoard |= spotBit;
+   if (player == 'X')
    {
-      pgameState->gameBoard |= spotBit;
-      if (player == 'X')
-      {
-         pgameState->playerXBoard |= spotBit;
-         printBoard(pgameState);
+      pgameState->playerXBoard |= spotBit;
+      printBoard(pgameState);
 
-         if (checkWin(pgameState->playerXBoard))
-         {
-            pgameState->gameOver = true;
-            printf("Player X wins!\n\n");
-         }
-      }
-      else
-      {
-         pgameState->playerOBoard |= spotBit;
-         printBoard(pgameState);
-         if (checkWin(pgameState->playerOBoard))
-         {
-            pgameState->gameOver = true;
-            printf("Player O wins!\n\n");
-         }
-      }
-
-      if (checkDraw(pgameState->gameBoard))
+      if (checkWin(pgameState->playerXBoard))
       {
          pgameState->gameOver = true;
-         printf("Game ended in a draw\n\n");
+         printf("Player X wins!\n\n");
       }
+   }
+   else
+   {
+      pgameState->playerOBoard |= spotBit;
+      printBoard(pgameState);
+      if (checkWin(pgameState->playerOBoard))
+      {
+         pgameState->gameOver = true;
+         printf("Player O wins!\n\n");
+      }
+   }
+
+   if (pgameState->gameOver == false && checkDraw(pgameState->gameBoard))
+   {
+      pgameState->gameOver = true;
+      printf("Game ended in a draw\n\n");
    }
 }
 
