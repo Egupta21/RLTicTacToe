@@ -22,12 +22,12 @@ using namespace std;
 
 #define ALPHA 0.1
 #define GAMMA 0.95
-#define epsilon 0.1
+#define epsilon 0.05
 
-#define EPISODES 10000
-#define GENERATIONS 100
+#define EPISODES 100
+#define GENERATIONS 1
 
-#define EVAL_INTERVAL 10000
+#define EVAL_INTERVAL 10
 #define EVAL_GAMES 100
 
 // make game board struct
@@ -279,10 +279,15 @@ void updateQTable(QTable *qtable, uint32_t prevState, uint16_t action, double re
       if (afterIt == qtable->qTable.end())
       {
          array<double, 9> zeroesQValues = {0.0};
+         for (int i = 0; i < actions; i++)
+         {
+            zeroesQValues[i] = ((double)std::rand() / RAND_MAX) * 0.01;
+         }
          qtable->qTable.insert({afterState, zeroesQValues});
       }
       double maxQafterState = *max_element(qtable->qTable.at(afterState).begin(), qtable->qTable.at(afterState).end());
-      qtable->qTable.at(prevState)[action - 1] += (alpha * (reward + gamma * maxQafterState - qtable->qTable.at(prevState)[action - 1]));
+      auto val = (alpha * (reward + gamma * maxQafterState - qtable->qTable.at(prevState)[action - 1]));
+      qtable->qTable.at(prevState)[action - 1] += val;
    }
 }
 
@@ -300,8 +305,8 @@ uint32_t createKey(const gameState *pgameState)
 
 void logEpisode(FILE *logFile, int episode, int wins, int loss, int draws)
 {
-   printf("Episode %d: Wins=%d, Loss=%d, Draws=%d\n", episode, wins, loss, draws);
-   fprintf(logFile, "%d,%d,%d,%d\n", episode, wins, loss, draws);
+   printf("Episode %d: Wins=%d, Loss=%d, Draws=%d, Win Percentage=%f\n", episode, wins, loss, draws, (double)wins / (wins + loss + draws));
+   fprintf(logFile, "%d,%d,%d,%d%f\n", episode, wins, loss, draws, (double)wins / (wins + loss + draws));
    fflush(logFile);
 }
 
@@ -403,6 +408,23 @@ void loadQTable(QTable *QTable, const char *filename)
    fclose(file);
 }
 
+void printQValues(const QTable *QTable, uint32_t key)
+{
+   auto it = QTable->qTable.find(key);
+   if (it == QTable->qTable.end())
+   {
+      printf("Undiscovered State Key");
+   }
+   else
+   {
+      for (size_t t = 0; t < actions; t++)
+      {
+         printf("%f ", QTable->qTable.at(key)[t]);
+      }
+      printf("\n\n");
+   }
+}
+
 int main(int argc, char *argv[])
 {
    std::srand(std::time(nullptr));
@@ -432,6 +454,7 @@ int main(int argc, char *argv[])
    uint32_t lastStateO = 0;
    uint16_t lastActionX = 1;
    uint16_t lastActionO = 1;
+
    for (int gen = 0; gen < GENERATIONS; gen++)
    {
       for (int episode = 0; episode < EPISODES; episode++)
@@ -445,6 +468,18 @@ int main(int argc, char *argv[])
             printf("Generation: %d\n", gen);
             runEvaluation(&qtable, episode, logFile);
             printf("\n");
+
+            printf("O plays first\n");
+            printQValues(&qtable, 0b000000000);
+
+            printf("X plays first\n");
+            printQValues(&qtable, 0b10000000000000000000000000000000);
+
+            printf("X plays after O plays top left\n");
+            printQValues(&qtable, 0b10000000000000000000000100000000);
+
+            printf("O plays after X plays top left\n");
+            printQValues(&qtable, 0b100000000);
          }
          while (!gameState.playerXGameWin && !gameState.playerOGameWin && !gameState.gameDraw)
          {
@@ -465,6 +500,10 @@ int main(int argc, char *argv[])
                reward = 1;
             else if (gameState.gameDraw)
                reward = 0;
+            else
+            {
+               reward = -0.01;
+            }
 
             // reward current player
             updateQTable(&qtable, prevState, move, reward, afterState, ALPHA, GAMMA);
@@ -476,13 +515,22 @@ int main(int argc, char *argv[])
                updateQTable(&qtable, lastStateX, lastActionX, -1, prevState, ALPHA, GAMMA);
             else if (gameState.gameDraw)
             {
-               reward = 0;
-               updateQTable(&qtable, lastStateX, lastActionX, 0, prevState, ALPHA, GAMMA);
-               updateQTable(&qtable, lastStateO, lastActionO, 0, prevState, ALPHA, GAMMA);
+               if (lastPlayer == 'X')
+               {
+                  reward = 0.5;
+                  updateQTable(&qtable, lastStateX, lastActionX, reward, lastStateO, ALPHA, GAMMA);
+                  updateQTable(&qtable, lastStateO, lastActionO, reward, prevState, ALPHA, GAMMA);
+               }
+               else
+               {
+                  reward = 0.5;
+                  updateQTable(&qtable, lastStateX, lastActionX, reward, prevState, ALPHA, GAMMA);
+                  updateQTable(&qtable, lastStateO, lastActionO, reward, lastStateX, ALPHA, GAMMA);
+               }
             }
 
             // Save last move and state of each player
-            if (gameState.currPlayer == 'X')
+            if (lastPlayer == 'X')
             {
                lastStateX = prevState;
                lastActionX = move;
