@@ -20,14 +20,14 @@ using namespace std;
 #define MAX_STATES 10
 #define actions 9
 
-#define ALPHA 0.01
-#define GAMMA 0.6
-#define epsilon 0.3
+#define ALPHA 0.1
+#define GAMMA 0.95
+#define epsilon 0.1
 
-#define EPISODES 1000
+#define EPISODES 10000
 #define GENERATIONS 100
 
-#define EVAL_INTERVAL 50
+#define EVAL_INTERVAL 10000
 #define EVAL_GAMES 100
 
 // make game board struct
@@ -331,11 +331,20 @@ void runEvaluation(QTable *QTable, int episode, FILE *logFile)
 {
    int wins = 0, loss = 0, draws = 0;
    gameState evalGame;
+   char Agent = 'X';
 
    for (int g = 0; g < EVAL_GAMES; g++)
    {
       resetBoard(&evalGame);
-      char Agent = evalGame.currPlayer;
+      if (evalGame.currPlayer == 'X')
+      {
+         Agent = 'O';
+      }
+      else
+      {
+         Agent = 'X';
+      }
+      // char Agent = evalGame.currPlayer;
       while (!evalGame.playerXGameWin && !evalGame.playerOGameWin && !evalGame.gameDraw)
       {
          if (evalGame.currPlayer != Agent)
@@ -445,18 +454,6 @@ int main(int argc, char *argv[])
             uint32_t prevState = createKey(&gameState);
             char lastPlayer = gameState.currPlayer;
 
-            // Save last move and state of each player
-            if (gameState.currPlayer == 'X')
-            {
-               lastStateX = prevState;
-               lastActionX = move;
-            }
-            else
-            {
-               lastStateO = prevState;
-               lastActionO = move;
-            }
-
             playMove(&gameState, move, gameState.currPlayer);
             uint32_t afterState = createKey(&gameState);
 
@@ -474,16 +471,17 @@ int main(int argc, char *argv[])
 
             // give reward to non active player
             if (lastPlayer == 'X' && gameState.playerXGameWin)
-               updateQTable(&qtable, lastStateO, lastActionO, -1, afterState, ALPHA, GAMMA);
+               updateQTable(&qtable, lastStateO, lastActionO, -1, prevState, ALPHA, GAMMA);
             else if (lastPlayer == 'O' && gameState.playerOGameWin)
-               updateQTable(&qtable, lastStateX, lastActionX, -1, afterState, ALPHA, GAMMA);
+               updateQTable(&qtable, lastStateX, lastActionX, -1, prevState, ALPHA, GAMMA);
             else if (gameState.gameDraw)
             {
                reward = 0;
-               updateQTable(&qtable, lastStateX, lastActionX, 0, afterState, ALPHA, GAMMA);
-               updateQTable(&qtable, lastStateO, lastActionO, 0, afterState, ALPHA, GAMMA);
+               updateQTable(&qtable, lastStateX, lastActionX, 0, prevState, ALPHA, GAMMA);
+               updateQTable(&qtable, lastStateO, lastActionO, 0, prevState, ALPHA, GAMMA);
             }
 
+            // Save last move and state of each player
             if (gameState.currPlayer == 'X')
             {
                lastStateX = prevState;
